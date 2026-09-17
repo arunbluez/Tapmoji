@@ -184,7 +184,7 @@ body { font-family: -apple-system, "Apple Color Emoji", "Segoe UI Emoji", "Noto 
     <div class="row"><span>Voice language</span><div class="seg" data-k="lang" id="langs"></div></div>
     <div class="row"><span>Speech rate</span><div class="seg" data-k="rate"><div data-v="0.7">Slow</div><div data-v="0.9">Normal</div></div></div>
     <div id="reset"><svg viewBox="0 0 26 26"><circle cx="13" cy="13" r="10"></circle></svg><span>Hold 2 s to reset everything</span></div>
-    <small>Tap outside this card to close.</small>
+    <small>Tap outside this card to close. Version <span id="ver"></span></small>
   </div>
 </div>
 
@@ -350,6 +350,7 @@ const CAT_KEYS = Object.keys(CATEGORIES);
 /* ==========================================================================
    Constants, DOM, state
    ========================================================================== */
+const APP_VERSION = '3';
 const STORE_KEY = 'tapmoji.v1';
 const MAX_EMOJI = 60, RECENT_MAX = 20;
 const SIZE = 110, MIN_SIZE = 60, MAX_SIZE = 220;
@@ -766,7 +767,7 @@ function renderSettings() {
     for (const d of seg.children) d.classList.toggle('on', d.dataset.v === cur);
   }
 }
-function openSettings() { renderSettings(); overlay.hidden = false; }
+function openSettings() { renderSettings(); $('ver').textContent = APP_VERSION; overlay.hidden = false; }
 function closeSettings() { overlay.hidden = true; resetBtn.classList.remove('holding'); }
 overlay.addEventListener('pointerdown', ev => {
   if (ev.target === overlay) { closeSettings(); return; }
@@ -806,8 +807,19 @@ load();
 for (const e of state.emojis) { clampFrac(e); mount(e, false); }
 renderTabs(); renderPicker();
 save();
+// Service worker: register, check for a newer sw.js on every open, and when a
+// new one takes over reload once so the fresh version shows immediately.
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => {}); });
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloading || !navigator.serviceWorker.controller) return;   // first install: nothing to swap
+    reloading = true; save(); location.reload();
+  });
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+      .then(reg => reg.update().catch(() => {}))
+      .catch(() => {});
+  });
 }
 </script>
 </body>

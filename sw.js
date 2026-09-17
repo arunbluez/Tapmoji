@@ -1,9 +1,10 @@
 // Tapmoji service worker: cache-first, versioned cache. Bump CACHE on every deploy.
-const CACHE = 'tapmoji-v2';
+const CACHE = 'tapmoji-v3';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-512.png'];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
+  // cache: 'reload' bypasses the browser HTTP cache so a new deploy is fetched fresh.
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', event => {
