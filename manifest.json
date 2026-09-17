@@ -1,0 +1,11 @@
+{
+  "name": "Tapmoji",
+  "short_name": "Tapmoji",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#87CEEB",
+  "theme_color": "#87CEEB",
+  "icons": [{ "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }]
+}

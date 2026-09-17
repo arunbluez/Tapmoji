@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tapmoji">
+<meta name="theme-color" content="#87CEEB">
+<link rel="icon" href="./icon-512.png">
+<link rel="apple-touch-icon" href="./icon-512.png">
+<link rel="manifest" href="./manifest.json">
+<title>Tapmoji</title>
+<style>
+/* ==========================================================================
+   Base & toddler-proofing
+   ========================================================================== */
+:root {
+  --sky: #87CEEB;
+  --picker: #E0F4FF;
+  --pill: #FFD93D;
+  --tab-h: 72px;
+  --cell: 96px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #app {
+  touch-action: none;
+  user-select: none; -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+html, body { height: 100%; overflow: hidden; background: var(--sky); }
+body { font-family: -apple-system, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; }
+#app {
+  display: flex; flex-direction: column;
+  width: 100vw; width: 100dvw;
+  height: 100vh; height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+}
+
+/* ==========================================================================
+   Canvas
+   ========================================================================== */
+#canvas { position: relative; flex: 62 1 0; overflow: hidden; background: var(--sky); }
+.e {
+  position: absolute; left: 0; top: 0;
+  width: 1.25em; height: 1.25em;
+  display: flex; align-items: center; justify-content: center;
+  line-height: 1;
+}
+.e.drag { will-change: transform; }
+.e .g { display: block; line-height: 1; }
+.e.in .g { animation: bounce-in .3s cubic-bezier(.34, 1.4, .64, 1); }
+.e.tap .g { animation: bounce .2s ease-out; }
+.e.spin .g { animation: spin .4s ease-in-out; }
+.e.drag .g { transform: scale(1.06); filter: drop-shadow(0 10px 12px rgba(0,0,0,.25)); }
+.e.bye { transition: opacity .35s ease; opacity: 0; pointer-events: none; }
+@keyframes bounce-in { 0% { transform: scale(0); } 70% { transform: scale(1.2); } 100% { transform: scale(1); } }
+@keyframes bounce { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
+@keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
+/* ==========================================================================
+   Parent corner (hold 2 s)
+   ========================================================================== */
+#corner {
+  position: absolute; right: 12px; bottom: 12px; z-index: 100000;
+  display: flex; gap: 12px;
+  margin-right: env(safe-area-inset-right);
+}
+.hold {
+  position: relative; width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; line-height: 1; opacity: .35;
+  transition: opacity .2s, transform .2s, background .2s;
+}
+.hold svg { position: absolute; inset: -4px; width: 48px; height: 48px; transform: rotate(-90deg); pointer-events: none; }
+.hold circle { fill: none; stroke: #1b4f72; stroke-width: 4; stroke-dasharray: 126; stroke-dashoffset: 126; }
+.hold.holding { opacity: 1; }
+.hold.holding circle { transition: stroke-dashoffset 2s linear; stroke-dashoffset: 0; }
+#app.dragging #bin { opacity: .85; transform: scale(1.4); }
+#app.dragging #bin.over { opacity: 1; transform: scale(1.9); background: #ff6b6b; }
+
+/* ==========================================================================
+   Tabs & picker
+   ========================================================================== */
+#tabs {
+  flex: none; height: var(--tab-h);
+  display: flex; justify-content: center; align-items: center; gap: 4px;
+  background: #fff; border-top: 2px solid #6cb6dc;
+  padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left);
+}
+.tab {
+  width: 64px; height: 60px; border-radius: 30px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36px; line-height: 1;
+}
+.tab.on { background: var(--pill); }
+#picker {
+  flex: 38 1 0; overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch; touch-action: pan-y;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  align-content: start;
+  background: var(--picker);
+  padding: 4px env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.cell {
+  height: var(--cell); border-radius: 18px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 64px; line-height: 1;
+}
+.cell.pressed { background: rgba(255,255,255,.9); transform: scale(.92); }
+@media (orientation: portrait) {
+  #canvas { flex: 55 1 0; }
+  #picker { flex: 45 1 0; }
+}
+
+/* ==========================================================================
+   Settings overlay
+   ========================================================================== */
+#overlay {
+  position: fixed; inset: 0; z-index: 200000;
+  background: rgba(0,0,0,.35);
+  display: flex; align-items: center; justify-content: center;
+}
+#overlay[hidden] { display: none; }
+#panel {
+  background: #fff; border-radius: 22px; padding: 20px 22px;
+  width: min(92vw, 460px); color: #222;
+  font: 18px -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  box-shadow: 0 20px 50px rgba(0,0,0,.3);
+}
+#panel h2 { font-size: 20px; margin-bottom: 6px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0; }
+.seg { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.seg div { padding: 9px 16px; border-radius: 12px; background: #eef1f4; font-weight: 600; }
+.seg div.on { background: var(--pill); }
+#reset {
+  position: relative; margin-top: 18px; padding: 12px; border-radius: 14px;
+  background: #ffe3e3; color: #b00020; font-weight: 700; text-align: center;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+}
+#reset svg { width: 26px; height: 26px; transform: rotate(-90deg); }
+#reset circle { fill: none; stroke: #b00020; stroke-width: 4; stroke-dasharray: 63; stroke-dashoffset: 63; }
+#reset.holding { background: #ffc9c9; }
+#reset.holding circle { transition: stroke-dashoffset 2s linear; stroke-dashoffset: 0; }
+#panel small { display: block; color: #777; font-size: 13px; margin-top: 12px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="canvas">
+    <div id="corner">
+      <div id="gear" class="hold"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="20"></circle></svg><span>⚙️</span></div>
+      <div id="bin" class="hold"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="20"></circle></svg><span>🧹</span></div>
+    </div>
+  </div>
+  <div id="tabs"></div>
+  <div id="picker"></div>
+</div>
+
+<div id="overlay" hidden>
+  <div id="panel">
+    <h2>Tapmoji</h2>
+    <div class="row"><span>Speech</span><div class="seg" data-k="speech"><div data-v="on">On</div><div data-v="off">Off</div></div></div>
+    <div class="row"><span>Sounds</span><div class="seg" data-k="sound"><div data-v="on">On</div><div data-v="off">Off</div></div></div>
+    <div class="row"><span>Voice language</span><div class="seg" data-k="lang" id="langs"></div></div>
+    <div class="row"><span>Speech rate</span><div class="seg" data-k="rate"><div data-v="0.7">Slow</div><div data-v="0.9">Normal</div></div></div>
+    <div id="reset"><svg viewBox="0 0 26 26"><circle cx="13" cy="13" r="10"></circle></svg><span>Hold 2 s to reset everything</span></div>
+    <small>Tap outside this card to close.</small>
+  </div>
+</div>
+
+<script type="module">
+/* ==========================================================================
+   Emoji data
+   ========================================================================== */
+const CATEGORIES = {
+  vehicles: ['🚗','🚕','🚙','🚌','🚎','🏎️','🚓','🚑','🚒','🚐','🛻','🚚','🚛','🚜','🏍️','🛵','🚲','🛴','✈️','🚀','🚁','🛸','⛵','🚤','🛥️','🚢','🚂','🚃','🚄','🚅','🚆','🚇','🚈','🚊','🚝','🚞','🚧','🚦','⛽','🛞'],
+  animals:  ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐢','🐍','🐙','🦀','🐠','🐟','🐬','🐳','🦈','🐘','🦒','🦓','🐑','🐐','🦘','🦥'],
+  food:     ['🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍒','🍑','🥭','🍍','🥝','🍅','🥕','🌽','🥦','🥔','🍞','🥐','🥚','🧁','🍰','🍪','🍩','🍫','🍬','🍭','🍦','🍨','🧀','🍕','🍔','🍟','🌭','🥪','🌮','🍿','🥛','🧃'],
+  nature:   ['🌸','🌺','🌻','🌹','🌷','🌼','🌱','🌲','🌳','🌴','🌵','🍀','🍁','🍂','🍃','🍄','☀️','🌙','⭐','🌈','☁️','🌧️','❄️','⛄','💧','🔥','🌊','⚡','🌍','🪨','💎','🌋'],
+  faces:    ['😀','😃','😄','😁','😊','🥰','😍','🤩','😎','🤗','🤭','😋','😛','😜','🤪','😇','🥳','😴','😢','😠','😱','😺','😸','😻','🙈','🙉','🙊','💩','👻','👽','🤖','🎃','👶','👦','👧','🧑','👨','👩','👵','👴'],
+  objects:  ['⚽','🏀','🏈','⚾','🎾','🎱','🪀','🎨','🎸','🎹','🥁','🎺','🎭','🎪','🎠','🎡','🎢','🎯','🪁','🧸','🪆','🎁','🎈','🎀','🏆','🥇','👑','💍','🔔','📱','💡','🔦','📷','🎥','⏰','🔑','🪣','🧹','🪜','🔨','🪛','🧲','🏠','🏰','⛺'],
+};
+
+const NAMES = {
+  en: {
+    // vehicles
+    '🚗':'car','🚕':'taxi','🚙':'jeep','🚌':'bus','🚎':'trolley bus','🏎️':'race car','🚓':'police car','🚑':'ambulance','🚒':'fire truck','🚐':'van','🛻':'pickup truck','🚚':'truck','🚛':'big truck','🚜':'tractor','🏍️':'motorbike','🛵':'scooter','🚲':'bicycle','🛴':'kick scooter','✈️':'airplane','🚀':'rocket','🚁':'helicopter','🛸':'flying saucer','⛵':'sailboat','🚤':'speedboat','🛥️':'boat','🚢':'ship','🚂':'steam train','🚃':'train car','🚄':'fast train','🚅':'bullet train','🚆':'train','🚇':'metro','🚈':'light rail','🚊':'tram','🚝':'monorail','🚞':'mountain train','🚧':'road block','🚦':'traffic light','⛽':'petrol pump','🛞':'wheel',
+    // animals
+    '🐶':'dog','🐱':'cat','🐭':'mouse','🐹':'hamster','🐰':'rabbit','🦊':'fox','🐻':'bear','🐼':'panda','🐨':'koala','🐯':'tiger','🦁':'lion','🐮':'cow','🐷':'pig','🐸':'frog','🐵':'monkey','🐔':'chicken','🐧':'penguin','🐦':'bird','🐤':'chick','🦆':'duck','🦅':'eagle','🦉':'owl','🐴':'horse','🦄':'unicorn','🐝':'bee','🐛':'caterpillar','🦋':'butterfly','🐌':'snail','🐞':'ladybug','🐢':'turtle','🐍':'snake','🐙':'octopus','🦀':'crab','🐠':'fish','🐟':'fish','🐬':'dolphin','🐳':'whale','🦈':'shark','🐘':'elephant','🦒':'giraffe','🦓':'zebra','🐑':'sheep','🐐':'goat','🦘':'kangaroo','🦥':'sloth',
+    // food
+    '🍎':'apple','🍐':'pear','🍊':'orange','🍋':'lemon','🍌':'banana','🍉':'watermelon','🍇':'grapes','🍓':'strawberry','🫐':'blueberries','🍒':'cherries','🍑':'peach','🥭':'mango','🍍':'pineapple','🥝':'kiwi','🍅':'tomato','🥕':'carrot','🌽':'corn','🥦':'broccoli','🥔':'potato','🍞':'bread','🥐':'croissant','🥚':'egg','🧁':'cupcake','🍰':'cake','🍪':'cookie','🍩':'donut','🍫':'chocolate','🍬':'candy','🍭':'lollipop','🍦':'ice cream','🍨':'ice cream','🧀':'cheese','🍕':'pizza','🍔':'burger','🍟':'fries','🌭':'hot dog','🥪':'sandwich','🌮':'taco','🍿':'popcorn','🥛':'milk','🧃':'juice',
+    // nature
+    '🌸':'blossom','🌺':'flower','🌻':'sunflower','🌹':'rose','🌷':'tulip','🌼':'daisy','🌱':'seedling','🌲':'pine tree','🌳':'tree','🌴':'palm tree','🌵':'cactus','🍀':'clover','🍁':'maple leaf','🍂':'fallen leaf','🍃':'leaf','🍄':'mushroom','☀️':'sun','🌙':'moon','⭐':'star','🌈':'rainbow','☁️':'cloud','🌧️':'rain','❄️':'snowflake','⛄':'snowman','💧':'water drop','🔥':'fire','🌊':'wave','⚡':'lightning','🌍':'earth','🪨':'rock','💎':'diamond','🌋':'volcano',
+    // faces
+    '😀':'happy face','😃':'smiling face','😄':'grinning face','😁':'beaming face','😊':'blushing face','🥰':'loving face','😍':'heart eyes','🤩':'star eyes','😎':'cool face','🤗':'hugging face','🤭':'giggling face','😋':'yummy face','😛':'tongue out','😜':'winking tongue','🤪':'silly face','😇':'angel face','🥳':'party face','😴':'sleepy face','😢':'crying face','😠':'angry face','😱':'scared face','😺':'happy cat','😸':'grinning cat','😻':'loving cat','🙈':'see no evil monkey','🙉':'hear no evil monkey','🙊':'speak no evil monkey','💩':'poop','👻':'ghost','👽':'alien','🤖':'robot','🎃':'pumpkin','👶':'baby','👦':'boy','👧':'girl','🧑':'person','👨':'man','👩':'woman','👵':'grandma','👴':'grandpa',
+    // objects
+    '⚽':'football','🏀':'basketball','🏈':'american football','⚾':'baseball','🎾':'tennis ball','🎱':'pool ball','🪀':'yo-yo','🎨':'paint palette','🎸':'guitar','🎹':'piano','🥁':'drum','🎺':'trumpet','🎭':'masks','🎪':'circus tent','🎠':'carousel','🎡':'ferris wheel','🎢':'roller coaster','🎯':'target','🪁':'kite','🧸':'teddy bear','🪆':'nesting dolls','🎁':'gift','🎈':'balloon','🎀':'ribbon','🏆':'trophy','🥇':'gold medal','👑':'crown','💍':'ring','🔔':'bell','📱':'phone','💡':'light bulb','🔦':'torch','📷':'camera','🎥':'video camera','⏰':'alarm clock','🔑':'key','🪣':'bucket','🧹':'broom','🪜':'ladder','🔨':'hammer','🪛':'screwdriver','🧲':'magnet','🏠':'house','🏰':'castle','⛺':'tent',
+  },
+  de: {
+    '🚗':'Auto','🚕':'Taxi','🚌':'Bus','🚓':'Polizeiauto','🚑':'Krankenwagen','🚒':'Feuerwehr','🚚':'Lastwagen','🚜':'Traktor','🚲':'Fahrrad','✈️':'Flugzeug','🚀':'Rakete','🚁':'Hubschrauber','⛵':'Segelboot','🚢':'Schiff','🚂':'Zug','🚆':'Zug','🚊':'Straßenbahn',
+    '🐶':'Hund','🐱':'Katze','🐭':'Maus','🐰':'Hase','🦊':'Fuchs','🐻':'Bär','🐼':'Panda','🐯':'Tiger','🦁':'Löwe','🐮':'Kuh','🐷':'Schwein','🐸':'Frosch','🐵':'Affe','🐔':'Huhn','🐧':'Pinguin','🐦':'Vogel','🦆':'Ente','🦉':'Eule','🐴':'Pferd','🦄':'Einhorn','🐝':'Biene','🦋':'Schmetterling','🐌':'Schnecke','🐢':'Schildkröte','🐟':'Fisch','🐠':'Fisch','🐬':'Delfin','🐳':'Wal','🐘':'Elefant','🦒':'Giraffe','🦓':'Zebra','🐑':'Schaf',
+    '🍎':'Apfel','🍐':'Birne','🍊':'Orange','🍋':'Zitrone','🍌':'Banane','🍉':'Wassermelone','🍇':'Trauben','🍓':'Erdbeere','🍒':'Kirschen','🍅':'Tomate','🥕':'Karotte','🌽':'Mais','🥦':'Brokkoli','🍞':'Brot','🥚':'Ei','🍰':'Kuchen','🍪':'Keks','🍫':'Schokolade','🍦':'Eis','🧀':'Käse','🍕':'Pizza','🍔':'Burger','🍟':'Pommes','🥛':'Milch',
+    '🌸':'Blüte','🌺':'Blume','🌻':'Sonnenblume','🌹':'Rose','🌳':'Baum','🌵':'Kaktus','🍄':'Pilz','☀️':'Sonne','🌙':'Mond','⭐':'Stern','🌈':'Regenbogen','☁️':'Wolke','🌧️':'Regen','❄️':'Schneeflocke','⛄':'Schneemann','💧':'Tropfen','🔥':'Feuer','🌊':'Welle','⚡':'Blitz','🌍':'Erde',
+    '😀':'lachendes Gesicht','😴':'müdes Gesicht','😢':'weinendes Gesicht','😠':'wütendes Gesicht','😺':'Katze','👻':'Gespenst','🤖':'Roboter','🎃':'Kürbis','👶':'Baby','👦':'Junge','👧':'Mädchen','👨':'Mann','👩':'Frau','👵':'Oma','👴':'Opa',
+    '⚽':'Fußball','🏀':'Basketball','🎸':'Gitarre','🎹':'Klavier','🥁':'Trommel','🎈':'Luftballon','🎁':'Geschenk','🧸':'Teddybär','🔔':'Glocke','📱':'Handy','💡':'Glühbirne','🔑':'Schlüssel','🏠':'Haus','🏰':'Schloss','⏰':'Wecker','🔨':'Hammer',
+  },
+  ta: {}, // fill later; falls back to en
+};
+const LANGS = { en: { label: 'English', tag: 'en-US' }, de: { label: 'Deutsch', tag: 'de-DE' }, ta: { label: 'தமிழ்', tag: 'ta-IN' } };
+const CAT_KEYS = Object.keys(CATEGORIES);
+
+/* ==========================================================================
+   Constants, DOM, state
+   ========================================================================== */
+const STORE_KEY = 'tapmoji.v1';
+const MAX_EMOJI = 60, RECENT_MAX = 20;
+const SIZE = 110, MIN_SIZE = 60, MAX_SIZE = 220;
+const BOX = 1.25;               // element box = font-size × BOX
+const EDGE = 40;                // at least this much of an emoji stays inside the canvas
+const DRAG_PX = 8, DBL_MS = 300, DBL_PX = 10, HOLD_MS = 2000, BIN_HIT = 96;
+
+const $ = id => document.getElementById(id);
+const app = $('app'), canvas = $('canvas'), tabsEl = $('tabs'), picker = $('picker');
+const bin = $('bin'), gear = $('gear'), overlay = $('overlay'), resetBtn = $('reset');
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const isNum = v => typeof v === 'number' && isFinite(v);
+
+const DEFAULT_SETTINGS = { speech: true, sound: true, lang: 'en', rate: 0.9 };
+const state = {
+  emojis: [],          // {id, ch, x, y, size, rot, z, el}  x/y = fractions of canvas W/H
+  recent: [],          // most recent first
+  tab: 'recent',
+  settings: { ...DEFAULT_SETTINGS },
+};
+let maxZ = 0;
+const byId = new Map();
+
+/* ==========================================================================
+   Persistence
+   ========================================================================== */
+function load() {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) { s = null; }
+  if (!s || typeof s !== 'object') return;
+  if (Array.isArray(s.emojis)) {
+    for (const e of s.emojis) {
+      if (!e || typeof e.ch !== 'string' || !isNum(e.x) || !isNum(e.y)) continue;
+      const z = isNum(e.z) ? e.z : 0;
+      maxZ = Math.max(maxZ, z);
+      state.emojis.push({
+        id: typeof e.id === 'string' ? e.id : newId(), ch: e.ch, x: e.x, y: e.y,
+        size: clamp(isNum(e.size) ? e.size : SIZE, MIN_SIZE, MAX_SIZE),
+        rot: isNum(e.rot) ? e.rot : 0, z,
+      });
+    }
+    state.emojis.sort((a, b) => a.z - b.z);
+  }
+  if (Array.isArray(s.recent)) state.recent = s.recent.filter(c => typeof c === 'string').slice(0, RECENT_MAX);
+  if (s.tab === 'recent' || CATEGORIES[s.tab]) state.tab = s.tab;
+  if (s.settings && typeof s.settings === 'object') {
+    const t = s.settings;
+    if (typeof t.speech === 'boolean') state.settings.speech = t.speech;
+    if (typeof t.sound === 'boolean') state.settings.sound = t.sound;
+    if (LANGS[t.lang]) state.settings.lang = t.lang;
+    if (t.rate === 0.7 || t.rate === 0.9) state.settings.rate = t.rate;
+  }
+}
+function save() {
+  const out = {
+    emojis: state.emojis.map(e => ({ id: e.id, ch: e.ch, x: +e.x.toFixed(4), y: +e.y.toFixed(4), size: Math.round(e.size), rot: Math.round(e.rot), z: e.z })),
+    recent: state.recent,
+    tab: state.tab,
+    settings: state.settings,
+  };
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(out)); } catch (e) { /* storage blocked/full: keep playing */ }
+}
+function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+/* ==========================================================================
+   Audio (Web Audio, synthesised)
+   ========================================================================== */
+let ac = null, noiseBuf = null;
+function audio() {
+  if (!ac) {
+    try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+  }
+  if (ac.state === 'suspended') ac.resume().catch(() => {});
+  return ac;
+}
+document.addEventListener('pointerdown', audio, { capture: true, passive: true });
+
+function ctx() { const c = audio(); return c && state.settings.sound ? c : null; }
+function noise(c) {
+  if (!noiseBuf) {
+    noiseBuf = c.createBuffer(1, c.sampleRate, c.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  const src = c.createBufferSource(); src.buffer = noiseBuf; return src;
+}
+function envelope(g, t0, peak, dur) {
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(peak, t0 + 0.008);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+}
+function tone(type, ramp, dur, peak) {  // ramp: [[hz, atSeconds], ...]
+  const c = ctx(); if (!c) return;
+  const t0 = c.currentTime, o = c.createOscillator(), g = c.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(ramp[0][0], t0);
+  for (let i = 1; i < ramp.length; i++) o.frequency.exponentialRampToValueAtTime(ramp[i][0], t0 + ramp[i][1]);
+  envelope(g, t0, peak, dur);
+  o.connect(g).connect(c.destination);
+  o.start(t0); o.stop(t0 + dur + 0.05);
+}
+const SFX = {
+  pop:   () => tone('sine', [[600, 0], [200, 0.12]], 0.12, 0.3),
+  boing: () => tone('triangle', [[300, 0], [150, 0.12], [400, 0.25]], 0.25, 0.25),
+  thud:  () => tone('sine', [[120, 0]], 0.08, 0.2),
+  tick() {
+    const c = ctx(); if (!c) return;
+    const t0 = c.currentTime, n = noise(c), g = c.createGain();
+    envelope(g, t0, 0.08, 0.04);
+    n.connect(g).connect(c.destination); n.start(t0); n.stop(t0 + 0.05);
+  },
+  whoosh() {
+    const c = ctx(); if (!c) return;
+    const t0 = c.currentTime, n = noise(c), f = c.createBiquadFilter(), g = c.createGain();
+    f.type = 'lowpass';
+    f.frequency.setValueAtTime(2000, t0);
+    f.frequency.exponentialRampToValueAtTime(200, t0 + 0.3);
+    envelope(g, t0, 0.2, 0.3);
+    n.connect(f).connect(g).connect(c.destination); n.start(t0); n.stop(t0 + 0.35);
+  },
+};
+
+/* ==========================================================================
+   Speech
+   ========================================================================== */
+const synth = window.speechSynthesis || null;
+let voices = [];
+function loadVoices() { if (synth) voices = synth.getVoices() || []; }
+if (synth) {
+  loadVoices();
+  if (typeof synth.addEventListener === 'function') synth.addEventListener('voiceschanged', loadVoices);
+  else synth.onvoiceschanged = loadVoices;
+}
+function voiceFor(lang) {
+  const list = voices.filter(v => v.lang && v.lang.toLowerCase().replace('_', '-').startsWith(lang));
+  if (!list.length) return null;
+  return list.find(v => v.localService && v.default) || list.find(v => v.localService) || list[0];
+}
+function nameFor(ch) { return NAMES[state.settings.lang][ch] || NAMES.en[ch] || ''; }
+function speak(ch) {
+  if (!synth || !state.settings.speech) return;
+  const name = nameFor(ch); if (!name) return;
+  try {
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(name);
+    const lang = NAMES[state.settings.lang][ch] ? state.settings.lang : 'en';
+    u.lang = LANGS[lang].tag;
+    u.rate = state.settings.rate;
+    const v = voiceFor(lang); if (v) u.voice = v;
+    synth.speak(u);
+  } catch (e) { /* ignore */ }
+}
+
+/* ==========================================================================
+   Canvas rendering
+   ========================================================================== */
+function W() { return canvas.clientWidth; }
+function H() { return canvas.clientHeight; }
+function clampFrac(e) {
+  const w = W(), h = H(), box = e.size * BOX;
+  if (!w || !h) return;
+  e.x = clamp(e.x * w, EDGE - box, w - EDGE) / w;
+  e.y = clamp(e.y * h, EDGE - box, h - EDGE) / h;
+}
+function render(e) {
+  e.el.style.fontSize = e.size + 'px';
+  e.el.style.zIndex = e.z;
+  e.el.style.transform = `translate3d(${(e.x * W()).toFixed(1)}px, ${(e.y * H()).toFixed(1)}px, 0) rotate(${e.rot}deg)`;
+}
+function mount(e, animateIn) {
+  const el = document.createElement('div');
+  el.className = 'e' + (animateIn ? ' in' : ''); el.dataset.id = e.id;
+  const g = document.createElement('span'); g.className = 'g'; g.textContent = e.ch;
+  el.appendChild(g);
+  e.el = el; byId.set(e.id, e);
+  render(e);
+  canvas.appendChild(el);
+  if (animateIn) setTimeout(() => el.classList.remove('in'), 350);
+}
+function bringFront(e) { if (e.z < maxZ) { e.z = ++maxZ; e.el.style.zIndex = e.z; } }
+function pulse(e, cls, ms) {
+  e.el.classList.remove(cls); void e.el.offsetWidth; e.el.classList.add(cls);
+  setTimeout(() => e.el.classList.remove(cls), ms);
+}
+function removeEmoji(e) {
+  const i = state.emojis.indexOf(e); if (i >= 0) state.emojis.splice(i, 1);
+  byId.delete(e.id);
+  e.el.classList.add('bye');
+  setTimeout(() => e.el.remove(), 400);
+}
+function randomSpot(size) {
+  const w = W(), h = H(), box = size * BOX;
+  const cx = w * (0.2 + Math.random() * 0.6), cy = h * (0.2 + Math.random() * 0.6);
+  return { x: (cx - box / 2) / w, y: (cy - box / 2) / h };
+}
+function addEmoji(ch) {
+  const spot = randomSpot(SIZE);
+  const e = { id: newId(), ch, x: spot.x, y: spot.y, size: SIZE, rot: Math.round(Math.random() * 30 - 15), z: ++maxZ };
+  clampFrac(e);
+  state.emojis.push(e);
+  mount(e, true);
+  while (state.emojis.length > MAX_EMOJI) removeEmoji(state.emojis[0]);   // oldest fades out
+  state.recent = [ch, ...state.recent.filter(c => c !== ch)].slice(0, RECENT_MAX);
+  SFX.pop(); speak(ch); save();
+}
+function clearCanvas() {
+  SFX.whoosh();
+  [...state.emojis].forEach(removeEmoji);
+  save();
+}
+function relayout() {
+  for (const e of state.emojis) { clampFrac(e); render(e); }
+  save();
+}
+window.addEventListener('resize', relayout);
+window.addEventListener('orientationchange', () => setTimeout(relayout, 300));
+
+/* ==========================================================================
+   Canvas gestures: tap, drag (pointer capture), double-tap, pinch, drag-to-bin
+   ========================================================================== */
+const ptrs = new Map();    // pointerId -> {e, sx, sy, cx, cy, ox, oy, moved}
+const grabs = new Map();   // emoji id -> Set(pointerId)
+const pinch = new Map();   // emoji id -> {d0, size0}
+let lastTap = { id: '', t: 0, x: 0, y: 0 }, overBin = false;
+
+function hitBin(x, y) {
+  const r = bin.getBoundingClientRect();
+  const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  return Math.abs(x - cx) <= BIN_HIT / 2 && Math.abs(y - cy) <= BIN_HIT / 2;
+}
+function setOverBin(v) { if (v !== overBin) { overBin = v; bin.classList.toggle('over', v); } }
+
+canvas.addEventListener('pointerdown', ev => {
+  const el = ev.target.closest ? ev.target.closest('.e') : null;
+  if (!el || el.classList.contains('bye')) return;
+  const e = byId.get(el.dataset.id); if (!e) return;
+  ev.preventDefault();
+  try { el.setPointerCapture(ev.pointerId); } catch (x) { /* ignore */ }
+  bringFront(e);
+  let g = grabs.get(e.id); if (!g) { g = new Set(); grabs.set(e.id, g); }
+  g.add(ev.pointerId);
+  ptrs.set(ev.pointerId, { e, sx: ev.clientX, sy: ev.clientY, cx: ev.clientX, cy: ev.clientY, ox: e.x * W(), oy: e.y * H(), moved: false });
+  if (g.size === 2) {                       // second finger on the same emoji: pinch
+    const [a, b] = [...g].map(id => ptrs.get(id));
+    a.moved = b.moved = true;
+    pinch.set(e.id, { d0: Math.max(20, Math.hypot(a.cx - b.cx, a.cy - b.cy)), size0: e.size });
+    el.classList.remove('drag'); app.classList.remove('dragging'); setOverBin(false);
+  }
+});
+canvas.addEventListener('pointermove', ev => {
+  const p = ptrs.get(ev.pointerId); if (!p) return;
+  p.cx = ev.clientX; p.cy = ev.clientY;
+  const e = p.e, g = grabs.get(e.id), pz = pinch.get(e.id);
+  if (pz) {
+    if (g.size >= 2) {
+      const [a, b] = [...g].map(id => ptrs.get(id));
+      e.size = clamp(pz.size0 * Math.hypot(a.cx - b.cx, a.cy - b.cy) / pz.d0, MIN_SIZE, MAX_SIZE);
+      render(e);
+    }
+    return;                                 // leftover finger after a pinch doesn't drag
+  }
+  const dx = ev.clientX - p.sx, dy = ev.clientY - p.sy;
+  if (!p.moved && Math.hypot(dx, dy) > DRAG_PX) {
+    p.moved = true; e.el.classList.add('drag'); app.classList.add('dragging');
+  }
+  if (p.moved) {
+    e.x = (p.ox + dx) / W(); e.y = (p.oy + dy) / H();
+    render(e);
+    setOverBin(hitBin(ev.clientX, ev.clientY));
+  }
+});
+function endPointer(ev) {
+  const p = ptrs.get(ev.pointerId); if (!p) return;
+  ptrs.delete(ev.pointerId);
+  const e = p.e, g = grabs.get(e.id);
+  g.delete(ev.pointerId);
+  if (g.size) return;                       // another finger still holds it
+  grabs.delete(e.id);
+  const wasPinch = pinch.delete(e.id);
+  e.el.classList.remove('drag'); app.classList.remove('dragging');
+  if (wasPinch) { clampFrac(e); render(e); save(); return; }
+  if (p.moved) {
+    if (ev.type !== 'pointercancel' && hitBin(ev.clientX, ev.clientY)) { removeEmoji(e); SFX.whoosh(); }
+    else { clampFrac(e); render(e); SFX.thud(); }
+    setOverBin(false); save(); return;
+  }
+  const now = Date.now();
+  if (lastTap.id === e.id && now - lastTap.t < DBL_MS && Math.hypot(ev.clientX - lastTap.x, ev.clientY - lastTap.y) < DBL_PX) {
+    lastTap = { id: '', t: 0, x: 0, y: 0 };
+    pulse(e, 'spin', 450); SFX.boing();
+  } else {
+    lastTap = { id: e.id, t: now, x: ev.clientX, y: ev.clientY };
+    pulse(e, 'tap', 250); speak(e.ch);
+  }
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+
+/* ==========================================================================
+   Tabs & picker
+   ========================================================================== */
+function renderTabs() {
+  tabsEl.innerHTML = '';
+  const tabs = [['recent', '🕘'], ...CAT_KEYS.map(k => [k, CATEGORIES[k][0]])];
+  for (const [key, icon] of tabs) {
+    const t = document.createElement('div');
+    t.className = 'tab' + (key === state.tab ? ' on' : ''); t.textContent = icon; t.dataset.key = key;
+    tabsEl.appendChild(t);
+  }
+}
+function renderPicker() {
+  picker.innerHTML = '';
+  let items = state.tab === 'recent' ? state.recent : CATEGORIES[state.tab];
+  if (!items.length) items = CATEGORIES.vehicles;   // empty Recent → vehicles
+  const frag = document.createDocumentFragment();
+  for (const ch of items) {
+    const c = document.createElement('div'); c.className = 'cell'; c.textContent = ch; c.dataset.ch = ch;
+    frag.appendChild(c);
+  }
+  picker.appendChild(frag);
+  picker.scrollTop = 0;
+}
+function setTab(key) {
+  if (key === state.tab) return;
+  state.tab = key; renderTabs(); renderPicker(); save();
+}
+tabsEl.addEventListener('pointerdown', ev => {
+  const t = ev.target.closest ? ev.target.closest('.tab') : null; if (!t) return;
+  ev.preventDefault(); SFX.tick(); setTab(t.dataset.key);
+});
+
+// One emoji per finger. Placement fires on release (not on touch-down) so a
+// vertical swipe scrolls the picker instead of dropping an emoji.
+const picks = new Map();
+picker.addEventListener('pointerdown', ev => {
+  const c = ev.target.closest ? ev.target.closest('.cell') : null; if (!c) return;
+  c.classList.add('pressed');
+  picks.set(ev.pointerId, { c, x: ev.clientX, y: ev.clientY });
+});
+picker.addEventListener('pointerup', ev => {
+  const p = picks.get(ev.pointerId); if (!p) return;
+  picks.delete(ev.pointerId); p.c.classList.remove('pressed');
+  const still = Math.hypot(ev.clientX - p.x, ev.clientY - p.y) < DRAG_PX;
+  if (still && p.c.isConnected) addEmoji(p.c.dataset.ch);
+});
+picker.addEventListener('pointercancel', ev => {
+  const p = picks.get(ev.pointerId); if (!p) return;
+  picks.delete(ev.pointerId); p.c.classList.remove('pressed');
+});
+
+/* ==========================================================================
+   Hold-for-2-seconds controls (parent corner, reset button)
+   ========================================================================== */
+function holdable(el, fn) {
+  let timer = null;
+  const stop = () => { if (timer) { clearTimeout(timer); timer = null; } el.classList.remove('holding'); };
+  el.addEventListener('pointerdown', ev => {
+    ev.stopPropagation(); ev.preventDefault();
+    try { el.setPointerCapture(ev.pointerId); } catch (x) { /* ignore */ }
+    stop(); el.classList.add('holding');
+    timer = setTimeout(() => { timer = null; el.classList.remove('holding'); fn(); }, HOLD_MS);
+  });
+  el.addEventListener('pointerup', stop);
+  el.addEventListener('pointercancel', stop);
+}
+holdable(bin, clearCanvas);
+holdable(gear, openSettings);
+holdable(resetBtn, resetEverything);
+
+/* ==========================================================================
+   Settings overlay
+   ========================================================================== */
+function renderSettings() {
+  loadVoices();
+  const langs = $('langs'); langs.innerHTML = '';
+  for (const key of Object.keys(LANGS)) {
+    if (key !== 'en' && voices.length && !voiceFor(key)) continue;   // only languages with a voice
+    const d = document.createElement('div'); d.dataset.v = key; d.textContent = LANGS[key].label;
+    langs.appendChild(d);
+  }
+  for (const seg of overlay.querySelectorAll('.seg')) {
+    const k = seg.dataset.k, s = state.settings;
+    const cur = k === 'speech' || k === 'sound' ? (s[k] ? 'on' : 'off') : String(s[k]);
+    for (const d of seg.children) d.classList.toggle('on', d.dataset.v === cur);
+  }
+}
+function openSettings() { renderSettings(); overlay.hidden = false; }
+function closeSettings() { overlay.hidden = true; resetBtn.classList.remove('holding'); }
+overlay.addEventListener('pointerdown', ev => {
+  if (ev.target === overlay) { closeSettings(); return; }
+  const d = ev.target.closest ? ev.target.closest('.seg > div') : null; if (!d) return;
+  const k = d.parentNode.dataset.k, v = d.dataset.v;
+  if (k === 'speech' || k === 'sound') state.settings[k] = v === 'on';
+  else if (k === 'rate') state.settings.rate = Number(v);
+  else state.settings[k] = v;
+  SFX.tick(); renderSettings(); save();
+  if (k === 'lang' || k === 'rate' || (k === 'speech' && state.settings.speech)) speak('🚗');
+});
+function resetEverything() {
+  try { localStorage.removeItem(STORE_KEY); } catch (e) { /* ignore */ }
+  for (const e of state.emojis) e.el.remove();
+  state.emojis = []; byId.clear(); maxZ = 0;
+  state.recent = []; state.tab = 'recent';
+  state.settings = { ...DEFAULT_SETTINGS };
+  renderTabs(); renderPicker(); closeSettings();
+  SFX.whoosh(); save();
+}
+
+/* ==========================================================================
+   Toddler-proofing
+   ========================================================================== */
+for (const t of ['contextmenu', 'selectstart', 'dragstart', 'dblclick', 'gesturestart', 'gesturechange', 'gestureend']) {
+  document.addEventListener(t, ev => ev.preventDefault(), { passive: false });
+}
+document.addEventListener('touchmove', ev => {
+  if (!(ev.target.closest && ev.target.closest('#picker'))) ev.preventDefault();
+}, { passive: false });
+document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+
+/* ==========================================================================
+   Boot
+   ========================================================================== */
+load();
+for (const e of state.emojis) { clampFrac(e); mount(e, false); }
+renderTabs(); renderPicker();
+save();
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => {}); });
+}
+</script>
+</body>
+</html>
