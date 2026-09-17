@@ -1,6 +1,6 @@
 # Tapmoji
 
-A big-keyboard emoji canvas for a toddler on an iPad. Tap an emoji to drop it on the canvas and hear its name, drag it around, double-tap to spin it, pinch to resize, and drag it onto the 🧹 corner to remove it. The scene is saved on every change and comes back exactly as it was after the app is killed, the iPad restarts, or Guided Access ends. Works fully offline as a home-screen web app. No framework, no build step, no network calls after install.
+A big-keyboard emoji canvas for a toddler on an iPad. Tap an emoji to drop it on the canvas and hear its name, drag it around, double-tap to spin it, pinch to resize, drag it onto the 🧹 corner to remove it, or tap the 🧹 button top-right to clear the whole canvas. Swipe the picker left or right to change category. The scene is saved on every change and comes back exactly as it was after the app is killed, the iPad restarts, or Guided Access ends. Works fully offline as a home-screen web app. No framework, no build step, no network calls after install.
 
 Files: `index.html` (all the code), `sw.js` (offline cache), `manifest.json`, `icon-512.png`.
 
@@ -28,4 +28,4 @@ Settings → Accessibility → Guided Access → on, set a passcode. Open Tapmoj
 
 ## Parent controls
 
-Bottom-right corner, faint icons. Hold 🧹 for 2 seconds to clear the canvas. Hold ⚙ for 2 seconds for settings: speech on/off, sounds on/off, voice language (only languages with an installed voice are listed), speech rate, and a hold-to-reset button that wipes everything. Tap outside the card to close it.
+Bottom-right corner, faint icons. Hold 🧹 for 2 seconds to clear the canvas (the visible 🧹 button top-right does the same with one tap). Hold ⚙ for 2 seconds for settings: speech on/off, sounds on/off, voice language (only languages with an installed voice are listed), speech rate, and a hold-to-reset button that wipes everything. Tap outside the card to close it.

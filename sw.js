@@ -1,5 +1,5 @@
 // Tapmoji service worker: cache-first, versioned cache. Bump CACHE on every deploy.
-const CACHE = 'tapmoji-v1';
+const CACHE = 'tapmoji-v2';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-512.png'];
 
 self.addEventListener('install', event => {

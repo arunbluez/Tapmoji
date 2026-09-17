@@ -82,6 +82,17 @@ body { font-family: -apple-system, "Apple Color Emoji", "Segoe UI Emoji", "Noto 
 #app.dragging #bin { opacity: .85; transform: scale(1.4); }
 #app.dragging #bin.over { opacity: 1; transform: scale(1.9); background: #ff6b6b; }
 
+#clear {
+  position: absolute; top: 10px; right: 12px; z-index: 100000;
+  width: 60px; height: 60px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32px; line-height: 1;
+  background: rgba(255,255,255,.85); box-shadow: 0 3px 8px rgba(0,0,0,.18);
+  margin-right: env(safe-area-inset-right);
+  transition: transform .15s;
+}
+#clear.pressed { transform: scale(.85); background: #ffd0d0; }
+
 /* ==========================================================================
    Tabs & picker
    ========================================================================== */
@@ -111,6 +122,10 @@ body { font-family: -apple-system, "Apple Color Emoji", "Segoe UI Emoji", "Noto 
   font-size: 64px; line-height: 1;
 }
 .cell.pressed { background: rgba(255,255,255,.9); transform: scale(.92); }
+#picker.slide-left { animation: slide-left .25s ease-out; }
+#picker.slide-right { animation: slide-right .25s ease-out; }
+@keyframes slide-left { from { transform: translateX(40px); opacity: .4; } to { transform: none; opacity: 1; } }
+@keyframes slide-right { from { transform: translateX(-40px); opacity: .4; } to { transform: none; opacity: 1; } }
 @media (orientation: portrait) {
   #canvas { flex: 55 1 0; }
   #picker { flex: 45 1 0; }
@@ -151,6 +166,7 @@ body { font-family: -apple-system, "Apple Color Emoji", "Segoe UI Emoji", "Noto 
 <body>
 <div id="app">
   <div id="canvas">
+    <div id="clear">🧹</div>
     <div id="corner">
       <div id="gear" class="hold"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="20"></circle></svg><span>⚙️</span></div>
       <div id="bin" class="hold"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="20"></circle></svg><span>🧹</span></div>
@@ -176,30 +192,148 @@ body { font-family: -apple-system, "Apple Color Emoji", "Segoe UI Emoji", "Noto 
 /* ==========================================================================
    Emoji data
    ========================================================================== */
-const CATEGORIES = {
-  vehicles: ['🚗','🚕','🚙','🚌','🚎','🏎️','🚓','🚑','🚒','🚐','🛻','🚚','🚛','🚜','🏍️','🛵','🚲','🛴','✈️','🚀','🚁','🛸','⛵','🚤','🛥️','🚢','🚂','🚃','🚄','🚅','🚆','🚇','🚈','🚊','🚝','🚞','🚧','🚦','⛽','🛞'],
-  animals:  ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐢','🐍','🐙','🦀','🐠','🐟','🐬','🐳','🦈','🐘','🦒','🦓','🐑','🐐','🦘','🦥'],
-  food:     ['🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍒','🍑','🥭','🍍','🥝','🍅','🥕','🌽','🥦','🥔','🍞','🥐','🥚','🧁','🍰','🍪','🍩','🍫','🍬','🍭','🍦','🍨','🧀','🍕','🍔','🍟','🌭','🥪','🌮','🍿','🥛','🧃'],
-  nature:   ['🌸','🌺','🌻','🌹','🌷','🌼','🌱','🌲','🌳','🌴','🌵','🍀','🍁','🍂','🍃','🍄','☀️','🌙','⭐','🌈','☁️','🌧️','❄️','⛄','💧','🔥','🌊','⚡','🌍','🪨','💎','🌋'],
-  faces:    ['😀','😃','😄','😁','😊','🥰','😍','🤩','😎','🤗','🤭','😋','😛','😜','🤪','😇','🥳','😴','😢','😠','😱','😺','😸','😻','🙈','🙉','🙊','💩','👻','👽','🤖','🎃','👶','👦','👧','🧑','👨','👩','👵','👴'],
-  objects:  ['⚽','🏀','🏈','⚾','🎾','🎱','🪀','🎨','🎸','🎹','🥁','🎺','🎭','🎪','🎠','🎡','🎢','🎯','🪁','🧸','🪆','🎁','🎈','🎀','🏆','🥇','👑','💍','🔔','📱','💡','🔦','📷','🎥','⏰','🔑','🪣','🧹','🪜','🔨','🪛','🧲','🏠','🏰','⛺'],
+// Every emoji with its English name. Categories and the English name map are
+// derived from this, so nothing can be placed without a name to speak.
+// Everything here renders on iPadOS 17 (Unicode 15.0 and earlier).
+const DATA = {
+  vehicles: [
+    ['🚗','car'],['🚕','taxi'],['🚙','jeep'],['🚌','bus'],['🚎','trolley bus'],['🏎️','race car'],['🚓','police car'],
+    ['🚑','ambulance'],['🚒','fire truck'],['🚐','van'],['🛻','pickup truck'],['🚚','truck'],['🚛','big truck'],
+    ['🚜','tractor'],['🚘','car'],['🚖','taxi'],['🚍','bus'],['🚔','police car'],['🏍️','motorbike'],['🛵','scooter'],
+    ['🛺','tuk tuk'],['🚲','bicycle'],['🛴','kick scooter'],['🛹','skateboard'],['🛼','roller skate'],['🦽','wheelchair'],
+    ['🛞','wheel'],['⛽','petrol pump'],['🚦','traffic light'],['🚥','traffic light'],['🛑','stop sign'],['🚧','road block'],
+    ['🚨','siren'],['🚂','steam train'],['🚃','train car'],['🚄','fast train'],['🚅','bullet train'],['🚆','train'],
+    ['🚇','metro'],['🚈','light rail'],['🚉','station'],['🚊','tram'],['🚋','tram car'],['🚝','monorail'],
+    ['🚞','mountain train'],['🚟','suspension railway'],['🚠','cable car'],['🚡','aerial tramway'],['✈️','airplane'],
+    ['🛩️','small plane'],['🛫','plane taking off'],['🛬','plane landing'],['🪂','parachute'],['🚁','helicopter'],
+    ['🚀','rocket'],['🛸','flying saucer'],['🛰️','satellite'],['⛵','sailboat'],['🛶','canoe'],['🚤','speedboat'],
+    ['🛥️','boat'],['🛳️','cruise ship'],['⛴️','ferry'],['🚢','ship'],['⚓','anchor'],['🛟','life ring'],
+  ],
+  animals: [
+    ['🐶','dog'],['🐕','dog'],['🐩','poodle'],['🐺','wolf'],['🦊','fox'],['🦝','raccoon'],['🐱','cat'],['🐈','cat'],
+    ['🐈‍⬛','black cat'],['🦁','lion'],['🐯','tiger'],['🐅','tiger'],['🐆','leopard'],['🐴','horse'],['🐎','horse'],
+    ['🦄','unicorn'],['🦓','zebra'],['🦌','deer'],['🫎','moose'],['🫏','donkey'],['🦬','bison'],['🐮','cow'],['🐂','ox'],
+    ['🐃','buffalo'],['🐄','cow'],['🐷','pig'],['🐖','pig'],['🐗','boar'],['🐏','ram'],['🐑','sheep'],['🐐','goat'],
+    ['🐪','camel'],['🐫','camel'],['🦙','llama'],['🦒','giraffe'],['🐘','elephant'],['🦣','mammoth'],['🦏','rhino'],
+    ['🦛','hippo'],['🐭','mouse'],['🐁','mouse'],['🐀','rat'],['🐹','hamster'],['🐰','rabbit'],['🐇','rabbit'],
+    ['🐿️','squirrel'],['🦫','beaver'],['🦔','hedgehog'],['🦇','bat'],['🐻','bear'],['🐻‍❄️','polar bear'],['🐨','koala'],
+    ['🐼','panda'],['🦥','sloth'],['🦦','otter'],['🦨','skunk'],['🦘','kangaroo'],['🦡','badger'],['🐵','monkey'],
+    ['🐒','monkey'],['🦍','gorilla'],['🦧','orangutan'],['🦃','turkey'],['🐔','chicken'],['🐓','rooster'],
+    ['🐣','hatching chick'],['🐤','chick'],['🐥','chick'],['🐦','bird'],['🐦‍⬛','blackbird'],['🐧','penguin'],['🕊️','dove'],
+    ['🦅','eagle'],['🦆','duck'],['🪿','goose'],['🦢','swan'],['🦉','owl'],['🦤','dodo'],['🦩','flamingo'],['🦚','peacock'],
+    ['🦜','parrot'],['🐸','frog'],['🐊','crocodile'],['🐢','turtle'],['🦎','lizard'],['🐍','snake'],['🐲','dragon'],
+    ['🐉','dragon'],['🦕','dinosaur'],['🦖','t-rex'],['🐳','whale'],['🐋','whale'],['🐬','dolphin'],['🦭','seal'],
+    ['🐟','fish'],['🐠','fish'],['🐡','puffer fish'],['🦈','shark'],['🐙','octopus'],['🪼','jellyfish'],['🦀','crab'],
+    ['🦞','lobster'],['🦐','shrimp'],['🦑','squid'],['🦪','oyster'],['🐚','shell'],['🪸','coral'],['🐌','snail'],
+    ['🦋','butterfly'],['🐛','caterpillar'],['🐜','ant'],['🐝','bee'],['🪲','beetle'],['🐞','ladybug'],['🦗','cricket'],
+    ['🕷️','spider'],['🦂','scorpion'],['🪱','worm'],['🦟','mosquito'],['🪰','fly'],
+  ],
+  food: [
+    ['🍎','apple'],['🍏','green apple'],['🍐','pear'],['🍊','orange'],['🍋','lemon'],['🍌','banana'],['🍉','watermelon'],
+    ['🍈','melon'],['🍇','grapes'],['🍓','strawberry'],['🫐','blueberries'],['🍒','cherries'],['🍑','peach'],['🥭','mango'],
+    ['🍍','pineapple'],['🥝','kiwi'],['🥥','coconut'],['🍅','tomato'],['🫒','olive'],['🥑','avocado'],['🍆','eggplant'],
+    ['🥔','potato'],['🥕','carrot'],['🌽','corn'],['🌶️','chilli'],['🫑','bell pepper'],['🥒','cucumber'],['🥬','lettuce'],
+    ['🥦','broccoli'],['🧄','garlic'],['🧅','onion'],['🍄','mushroom'],['🫛','peas'],['🫚','ginger'],['🥜','peanuts'],
+    ['🫘','beans'],['🌰','chestnut'],['🍞','bread'],['🥐','croissant'],['🥖','baguette'],['🫓','flatbread'],['🥨','pretzel'],
+    ['🥯','bagel'],['🥞','pancakes'],['🧇','waffle'],['🧀','cheese'],['🥚','egg'],['🍳','fried egg'],['🧈','butter'],
+    ['🥓','bacon'],['🍗','chicken leg'],['🍖','meat'],['🥩','steak'],['🍔','burger'],['🍟','fries'],['🍕','pizza'],
+    ['🌭','hot dog'],['🥪','sandwich'],['🌮','taco'],['🌯','burrito'],['🫔','tamale'],['🥙','pita'],['🧆','falafel'],
+    ['🥘','paella'],['🍲','stew'],['🫕','fondue'],['🥣','cereal'],['🥗','salad'],['🍿','popcorn'],['🧂','salt'],
+    ['🥫','tin can'],['🍱','bento box'],['🍘','rice cracker'],['🍙','rice ball'],['🍚','rice'],['🍛','curry'],['🍜','noodles'],
+    ['🍝','spaghetti'],['🍠','sweet potato'],['🍢','skewer'],['🍣','sushi'],['🍤','fried shrimp'],['🍥','fish cake'],
+    ['🥮','moon cake'],['🍡','dango'],['🥟','dumpling'],['🥠','fortune cookie'],['🥡','takeout box'],['🍦','ice cream'],
+    ['🍧','shaved ice'],['🍨','ice cream'],['🍩','donut'],['🍪','cookie'],['🎂','birthday cake'],['🍰','cake'],
+    ['🧁','cupcake'],['🥧','pie'],['🍫','chocolate'],['🍬','candy'],['🍭','lollipop'],['🍮','pudding'],['🍯','honey'],
+    ['🍼','baby bottle'],['🥛','milk'],['☕','coffee'],['🫖','teapot'],['🍵','tea'],['🧃','juice'],['🥤','drink'],
+    ['🧋','bubble tea'],['🧊','ice'],['🥢','chopsticks'],['🍽️','plate'],['🍴','fork and knife'],['🥄','spoon'],
+  ],
+  nature: [
+    ['🌸','blossom'],['💐','bouquet'],['💮','white flower'],['🪷','lotus'],['🏵️','rosette'],['🌹','rose'],['🥀','wilted flower'],
+    ['🌺','flower'],['🌻','sunflower'],['🌼','daisy'],['🌷','tulip'],['🪻','hyacinth'],['🌱','seedling'],['🪴','potted plant'],
+    ['🌲','pine tree'],['🌳','tree'],['🌴','palm tree'],['🌵','cactus'],['🎄','christmas tree'],['🌾','wheat'],['🌿','herb'],
+    ['☘️','shamrock'],['🍀','clover'],['🍁','maple leaf'],['🍂','fallen leaf'],['🍃','leaf'],['🪹','empty nest'],
+    ['🪺','nest'],['🪨','rock'],['🪵','wood'],['🌍','earth'],['🌎','earth'],['🌏','earth'],['🌑','new moon'],
+    ['🌓','half moon'],['🌕','full moon'],['🌙','moon'],['🌛','moon face'],['🌝','full moon face'],['☀️','sun'],
+    ['🌞','sun face'],['🪐','planet'],['⭐','star'],['🌟','sparkle star'],['🌠','shooting star'],['🌌','milky way'],
+    ['☁️','cloud'],['⛅','sun behind cloud'],['🌤️','sun and cloud'],['🌥️','cloud and sun'],['🌦️','sun and rain'],
+    ['🌧️','rain'],['⛈️','thunderstorm'],['🌩️','lightning cloud'],['🌨️','snow cloud'],['🌪️','tornado'],['🌫️','fog'],
+    ['🌬️','wind'],['🌀','cyclone'],['🌈','rainbow'],['⚡','lightning'],['❄️','snowflake'],['☃️','snowman'],['⛄','snowman'],
+    ['☄️','comet'],['🔥','fire'],['💧','water drop'],['🌊','wave'],['🏔️','snowy mountain'],['⛰️','mountain'],
+    ['🌋','volcano'],['🗻','mount fuji'],['🏕️','camping'],['🏖️','beach'],['🏜️','desert'],['🏝️','island'],['💎','diamond'],
+    ['✨','sparkles'],
+  ],
+  faces: [
+    ['😀','happy face'],['😃','smiling face'],['😄','grinning face'],['😁','beaming face'],['😆','laughing face'],
+    ['😅','sweaty smile'],['🤣','rolling laughing'],['😂','crying laughing'],['🙂','smile'],['🙃','upside down face'],
+    ['🫠','melting face'],['😉','winking face'],['😊','blushing face'],['😇','angel face'],['🥰','loving face'],
+    ['😍','heart eyes'],['🤩','star eyes'],['😘','blowing a kiss'],['😗','kissing face'],['☺️','smiling face'],
+    ['😚','kissing face'],['😙','kissing face'],['🥲','happy tear'],['😋','yummy face'],['😛','tongue out'],
+    ['😜','winking tongue'],['🤪','silly face'],['😝','squinting tongue'],['🤑','money face'],['🤗','hugging face'],
+    ['🤭','giggling face'],['🫢','gasp'],['🫣','peeking face'],['🤫','shush'],['🤔','thinking face'],['🫡','salute'],
+    ['🤐','zipper mouth'],['🤨','raised eyebrow'],['😐','neutral face'],['😑','blank face'],['😶','no mouth'],
+    ['🫥','dotted face'],['😏','smirk'],['😒','unamused face'],['🙄','eye roll'],['😬','grimace'],['😮‍💨','sigh'],
+    ['🤥','lying face'],['🫨','shaking face'],['😌','relieved face'],['😔','pensive face'],['😪','sleepy face'],
+    ['🤤','drooling face'],['😴','sleeping face'],['😷','mask face'],['🤒','sick face'],['🤕','hurt face'],
+    ['🤢','nauseous face'],['🤧','sneezing face'],['🥵','hot face'],['🥶','cold face'],['🥴','woozy face'],
+    ['😵','dizzy face'],['😵‍💫','spiral eyes'],['🤯','exploding head'],['🤠','cowboy'],['🥳','party face'],['🥸','disguise'],
+    ['😎','cool face'],['🤓','nerd face'],['🧐','monocle face'],['😕','confused face'],['🫤','diagonal mouth'],
+    ['😟','worried face'],['🙁','frowning face'],['☹️','frowning face'],['😮','surprised face'],['😯','hushed face'],
+    ['😲','astonished face'],['😳','flushed face'],['🥺','pleading face'],['🥹','holding back tears'],['😦','frowning face'],
+    ['😧','anguished face'],['😨','fearful face'],['😰','anxious face'],['😥','sad relieved face'],['😢','crying face'],
+    ['😭','sobbing face'],['😱','scared face'],['😖','confounded face'],['😣','persevering face'],['😞','disappointed face'],
+    ['😓','downcast face'],['😩','weary face'],['😫','tired face'],['🥱','yawning face'],['😤','huffing face'],
+    ['😡','pouting face'],['😠','angry face'],['💩','poop'],['🤡','clown'],['👹','ogre'],['👺','goblin'],['👻','ghost'],
+    ['👽','alien'],['👾','space monster'],['🤖','robot'],['🎃','pumpkin'],['😺','happy cat'],['😸','grinning cat'],
+    ['😹','laughing cat'],['😻','loving cat'],['😼','smirking cat'],['😽','kissing cat'],['🙀','scared cat'],
+    ['😿','crying cat'],['😾','pouting cat'],['🙈','see no evil monkey'],['🙉','hear no evil monkey'],
+    ['🙊','speak no evil monkey'],['❤️','heart'],['🧡','orange heart'],['💛','yellow heart'],['💚','green heart'],
+    ['💙','blue heart'],['💜','purple heart'],['🖤','black heart'],['🤍','white heart'],['🤎','brown heart'],
+    ['🩷','pink heart'],['🩵','light blue heart'],['🩶','grey heart'],['💔','broken heart'],['💕','two hearts'],
+    ['💖','sparkling heart'],['💗','growing heart'],['💓','beating heart'],['💞','revolving hearts'],
+    ['💘','heart with arrow'],['💝','heart with ribbon'],['👶','baby'],['🧒','child'],['👦','boy'],['👧','girl'],
+    ['🧑','person'],['👱','blond person'],['👨','man'],['🧔','bearded man'],['👩','woman'],['🧓','older person'],
+    ['👴','grandpa'],['👵','grandma'],['🧑‍🍼','person feeding baby'],['🧑‍⚕️','doctor'],['🧑‍🏫','teacher'],['🧑‍🌾','farmer'],
+    ['🧑‍🍳','cook'],['🧑‍🔧','mechanic'],['🧑‍🚒','firefighter'],['🧑‍✈️','pilot'],['🧑‍🚀','astronaut'],['👮','police officer'],
+    ['👷','builder'],['🕵️','detective'],['💂','guard'],['🧑‍🎨','artist'],['🧑‍🎤','singer'],['🧑‍🔬','scientist'],
+    ['🎅','santa'],['🤶','mrs claus'],['🧙','wizard'],['🧚','fairy'],['🧜','mermaid'],['🧞','genie'],['🦸','superhero'],
+    ['🧝','elf'],['👋','waving hand'],['👍','thumbs up'],['👎','thumbs down'],['👏','clapping hands'],['🙌','raised hands'],
+    ['🤝','handshake'],['💪','strong arm'],['👀','eyes'],['👂','ear'],['👃','nose'],['👄','mouth'],['👅','tongue'],
+    ['🦷','tooth'],['🦶','foot'],
+  ],
+  objects: [
+    ['⚽','football'],['🏀','basketball'],['🏈','american football'],['⚾','baseball'],['🥎','softball'],['🎾','tennis ball'],
+    ['🏐','volleyball'],['🏉','rugby ball'],['🥏','frisbee'],['🎱','pool ball'],['🏓','ping pong'],['🏸','badminton'],
+    ['🏒','ice hockey'],['🏑','field hockey'],['🥍','lacrosse'],['🏏','cricket bat'],['🪃','boomerang'],['🥅','goal'],
+    ['⛳','golf'],['🪁','kite'],['🎣','fishing rod'],['🤿','diving mask'],['🎿','skis'],['🛷','sled'],['🥌','curling stone'],
+    ['🎯','target'],['🪀','yo-yo'],['🪄','magic wand'],['🎮','video game'],['🕹️','joystick'],['🎲','dice'],['🧩','puzzle'],
+    ['🧸','teddy bear'],['🪅','pinata'],['🪩','disco ball'],['🪆','nesting dolls'],['♟️','chess piece'],['🃏','joker card'],
+    ['🎴','flower cards'],['🎈','balloon'],['🎁','gift'],['🎀','ribbon'],['🎊','confetti'],['🎉','party popper'],
+    ['🎼','music sheet'],['🎵','music note'],['🎶','music notes'],['🎤','microphone'],['🎧','headphones'],
+    ['🎷','saxophone'],['🪗','accordion'],['🎸','guitar'],['🎹','piano'],['🎺','trumpet'],['🎻','violin'],['🪕','banjo'],
+    ['🥁','drum'],['🪘','long drum'],['🪇','maracas'],['🪈','flute'],['🎨','paint palette'],['🖌️','paintbrush'],
+    ['🖍️','crayon'],['✏️','pencil'],['🖊️','pen'],['📏','ruler'],['✂️','scissors'],['📚','books'],['📖','open book'],
+    ['📱','phone'],['☎️','telephone'],['💻','laptop'],['⌨️','keyboard'],['🖥️','computer'],['🖨️','printer'],
+    ['📷','camera'],['📸','camera flash'],['📹','video camera'],['🎥','movie camera'],['📺','television'],['📻','radio'],
+    ['⏰','alarm clock'],['⌚','watch'],['🕰️','mantel clock'],['🔋','battery'],['💡','light bulb'],['🔦','torch'],
+    ['🕯️','candle'],['🔧','wrench'],['🔨','hammer'],['⚒️','hammer and pick'],['🛠️','tools'],['🪛','screwdriver'],
+    ['🔩','nut and bolt'],['⚙️','gear'],['🧲','magnet'],['🪜','ladder'],['🧰','toolbox'],['🧹','broom'],['🧺','basket'],
+    ['🪣','bucket'],['🧼','soap'],['🪥','toothbrush'],['🧽','sponge'],['🧯','fire extinguisher'],['🛏️','bed'],
+    ['🛋️','couch'],['🪑','chair'],['🚪','door'],['🪟','window'],['🛁','bathtub'],['🚿','shower'],['🚽','toilet'],
+    ['🧴','lotion'],['🔑','key'],['🗝️','old key'],['🏠','house'],['🏡','house with garden'],['🏫','school'],
+    ['🏥','hospital'],['🏰','castle'],['🏯','japanese castle'],['⛺','tent'],['🎪','circus tent'],['🎠','carousel'],
+    ['🎡','ferris wheel'],['🎢','roller coaster'],['🗼','tower'],['🗽','statue of liberty'],['⛲','fountain'],
+    ['🏟️','stadium'],['🏗️','crane'],['👕','t-shirt'],['👖','jeans'],['👗','dress'],['🧥','coat'],['🧤','gloves'],
+    ['🧣','scarf'],['🧦','socks'],['👟','sneaker'],['👞','shoe'],['👠','high heel'],['🥾','boot'],['👒','sun hat'],
+    ['🎩','top hat'],['🧢','cap'],['👑','crown'],['💍','ring'],['👓','glasses'],['🕶️','sunglasses'],['🎒','backpack'],
+    ['👜','handbag'],['☂️','umbrella'],['🏆','trophy'],['🥇','gold medal'],['🥈','silver medal'],['🥉','bronze medal'],
+    ['🎖️','medal'],['🔔','bell'],['📦','box'],['✉️','envelope'],['📮','postbox'],['🪙','coin'],['💰','money bag'],
+    ['🛒','shopping cart'],['🛍️','shopping bags'],['🧭','compass'],['🗺️','map'],['🪞','mirror'],['🎆','fireworks'],
+    ['🎇','sparkler'],['🧨','firecracker'],
+  ],
 };
-
+const CATEGORIES = Object.fromEntries(Object.entries(DATA).map(([k, list]) => [k, list.map(x => x[0])]));
 const NAMES = {
-  en: {
-    // vehicles
-    '🚗':'car','🚕':'taxi','🚙':'jeep','🚌':'bus','🚎':'trolley bus','🏎️':'race car','🚓':'police car','🚑':'ambulance','🚒':'fire truck','🚐':'van','🛻':'pickup truck','🚚':'truck','🚛':'big truck','🚜':'tractor','🏍️':'motorbike','🛵':'scooter','🚲':'bicycle','🛴':'kick scooter','✈️':'airplane','🚀':'rocket','🚁':'helicopter','🛸':'flying saucer','⛵':'sailboat','🚤':'speedboat','🛥️':'boat','🚢':'ship','🚂':'steam train','🚃':'train car','🚄':'fast train','🚅':'bullet train','🚆':'train','🚇':'metro','🚈':'light rail','🚊':'tram','🚝':'monorail','🚞':'mountain train','🚧':'road block','🚦':'traffic light','⛽':'petrol pump','🛞':'wheel',
-    // animals
-    '🐶':'dog','🐱':'cat','🐭':'mouse','🐹':'hamster','🐰':'rabbit','🦊':'fox','🐻':'bear','🐼':'panda','🐨':'koala','🐯':'tiger','🦁':'lion','🐮':'cow','🐷':'pig','🐸':'frog','🐵':'monkey','🐔':'chicken','🐧':'penguin','🐦':'bird','🐤':'chick','🦆':'duck','🦅':'eagle','🦉':'owl','🐴':'horse','🦄':'unicorn','🐝':'bee','🐛':'caterpillar','🦋':'butterfly','🐌':'snail','🐞':'ladybug','🐢':'turtle','🐍':'snake','🐙':'octopus','🦀':'crab','🐠':'fish','🐟':'fish','🐬':'dolphin','🐳':'whale','🦈':'shark','🐘':'elephant','🦒':'giraffe','🦓':'zebra','🐑':'sheep','🐐':'goat','🦘':'kangaroo','🦥':'sloth',
-    // food
-    '🍎':'apple','🍐':'pear','🍊':'orange','🍋':'lemon','🍌':'banana','🍉':'watermelon','🍇':'grapes','🍓':'strawberry','🫐':'blueberries','🍒':'cherries','🍑':'peach','🥭':'mango','🍍':'pineapple','🥝':'kiwi','🍅':'tomato','🥕':'carrot','🌽':'corn','🥦':'broccoli','🥔':'potato','🍞':'bread','🥐':'croissant','🥚':'egg','🧁':'cupcake','🍰':'cake','🍪':'cookie','🍩':'donut','🍫':'chocolate','🍬':'candy','🍭':'lollipop','🍦':'ice cream','🍨':'ice cream','🧀':'cheese','🍕':'pizza','🍔':'burger','🍟':'fries','🌭':'hot dog','🥪':'sandwich','🌮':'taco','🍿':'popcorn','🥛':'milk','🧃':'juice',
-    // nature
-    '🌸':'blossom','🌺':'flower','🌻':'sunflower','🌹':'rose','🌷':'tulip','🌼':'daisy','🌱':'seedling','🌲':'pine tree','🌳':'tree','🌴':'palm tree','🌵':'cactus','🍀':'clover','🍁':'maple leaf','🍂':'fallen leaf','🍃':'leaf','🍄':'mushroom','☀️':'sun','🌙':'moon','⭐':'star','🌈':'rainbow','☁️':'cloud','🌧️':'rain','❄️':'snowflake','⛄':'snowman','💧':'water drop','🔥':'fire','🌊':'wave','⚡':'lightning','🌍':'earth','🪨':'rock','💎':'diamond','🌋':'volcano',
-    // faces
-    '😀':'happy face','😃':'smiling face','😄':'grinning face','😁':'beaming face','😊':'blushing face','🥰':'loving face','😍':'heart eyes','🤩':'star eyes','😎':'cool face','🤗':'hugging face','🤭':'giggling face','😋':'yummy face','😛':'tongue out','😜':'winking tongue','🤪':'silly face','😇':'angel face','🥳':'party face','😴':'sleepy face','😢':'crying face','😠':'angry face','😱':'scared face','😺':'happy cat','😸':'grinning cat','😻':'loving cat','🙈':'see no evil monkey','🙉':'hear no evil monkey','🙊':'speak no evil monkey','💩':'poop','👻':'ghost','👽':'alien','🤖':'robot','🎃':'pumpkin','👶':'baby','👦':'boy','👧':'girl','🧑':'person','👨':'man','👩':'woman','👵':'grandma','👴':'grandpa',
-    // objects
-    '⚽':'football','🏀':'basketball','🏈':'american football','⚾':'baseball','🎾':'tennis ball','🎱':'pool ball','🪀':'yo-yo','🎨':'paint palette','🎸':'guitar','🎹':'piano','🥁':'drum','🎺':'trumpet','🎭':'masks','🎪':'circus tent','🎠':'carousel','🎡':'ferris wheel','🎢':'roller coaster','🎯':'target','🪁':'kite','🧸':'teddy bear','🪆':'nesting dolls','🎁':'gift','🎈':'balloon','🎀':'ribbon','🏆':'trophy','🥇':'gold medal','👑':'crown','💍':'ring','🔔':'bell','📱':'phone','💡':'light bulb','🔦':'torch','📷':'camera','🎥':'video camera','⏰':'alarm clock','🔑':'key','🪣':'bucket','🧹':'broom','🪜':'ladder','🔨':'hammer','🪛':'screwdriver','🧲':'magnet','🏠':'house','🏰':'castle','⛺':'tent',
-  },
+  en: Object.fromEntries(Object.values(DATA).flat()),
   de: {
     '🚗':'Auto','🚕':'Taxi','🚌':'Bus','🚓':'Polizeiauto','🚑':'Krankenwagen','🚒':'Feuerwehr','🚚':'Lastwagen','🚜':'Traktor','🚲':'Fahrrad','✈️':'Flugzeug','🚀':'Rakete','🚁':'Hubschrauber','⛵':'Segelboot','🚢':'Schiff','🚂':'Zug','🚆':'Zug','🚊':'Straßenbahn',
     '🐶':'Hund','🐱':'Katze','🐭':'Maus','🐰':'Hase','🦊':'Fuchs','🐻':'Bär','🐼':'Panda','🐯':'Tiger','🦁':'Löwe','🐮':'Kuh','🐷':'Schwein','🐸':'Frosch','🐵':'Affe','🐔':'Huhn','🐧':'Pinguin','🐦':'Vogel','🦆':'Ente','🦉':'Eule','🐴':'Pferd','🦄':'Einhorn','🐝':'Biene','🦋':'Schmetterling','🐌':'Schnecke','🐢':'Schildkröte','🐟':'Fisch','🐠':'Fisch','🐬':'Delfin','🐳':'Wal','🐘':'Elefant','🦒':'Giraffe','🦓':'Zebra','🐑':'Schaf',
@@ -542,28 +676,49 @@ function setTab(key) {
   if (key === state.tab) return;
   state.tab = key; renderTabs(); renderPicker(); save();
 }
+const TAB_ORDER = ['recent', ...CAT_KEYS];
+function shiftTab(dir) {                     // dir: +1 = next category, -1 = previous
+  const i = (TAB_ORDER.indexOf(state.tab) + dir + TAB_ORDER.length) % TAB_ORDER.length;
+  SFX.tick(); setTab(TAB_ORDER[i]);
+  const cls = dir > 0 ? 'slide-left' : 'slide-right';
+  picker.classList.remove('slide-left', 'slide-right'); void picker.offsetWidth; picker.classList.add(cls);
+  setTimeout(() => picker.classList.remove(cls), 300);
+}
 tabsEl.addEventListener('pointerdown', ev => {
   const t = ev.target.closest ? ev.target.closest('.tab') : null; if (!t) return;
   ev.preventDefault(); SFX.tick(); setTab(t.dataset.key);
 });
 
 // One emoji per finger. Placement fires on release (not on touch-down) so a
-// vertical swipe scrolls the picker instead of dropping an emoji.
+// vertical swipe scrolls the picker instead of dropping an emoji, and a
+// horizontal swipe switches category.
+const SWIPE_PX = 50;
 const picks = new Map();
 picker.addEventListener('pointerdown', ev => {
-  const c = ev.target.closest ? ev.target.closest('.cell') : null; if (!c) return;
-  c.classList.add('pressed');
-  picks.set(ev.pointerId, { c, x: ev.clientX, y: ev.clientY });
+  const c = ev.target.closest ? ev.target.closest('.cell') : null;
+  if (c) c.classList.add('pressed');
+  picks.set(ev.pointerId, { c, x: ev.clientX, y: ev.clientY, swiped: false });
+});
+picker.addEventListener('pointermove', ev => {
+  const p = picks.get(ev.pointerId); if (!p || p.swiped) return;
+  const dx = ev.clientX - p.x, dy = ev.clientY - p.y;
+  if (Math.abs(dx) > SWIPE_PX && Math.abs(dx) > Math.abs(dy) * 1.5) {
+    p.swiped = true;
+    if (p.c) p.c.classList.remove('pressed');
+    shiftTab(dx < 0 ? 1 : -1);
+  }
 });
 picker.addEventListener('pointerup', ev => {
   const p = picks.get(ev.pointerId); if (!p) return;
-  picks.delete(ev.pointerId); p.c.classList.remove('pressed');
+  picks.delete(ev.pointerId);
+  if (!p.c) return;
+  p.c.classList.remove('pressed');
   const still = Math.hypot(ev.clientX - p.x, ev.clientY - p.y) < DRAG_PX;
-  if (still && p.c.isConnected) addEmoji(p.c.dataset.ch);
+  if (!p.swiped && still && p.c.isConnected) addEmoji(p.c.dataset.ch);
 });
 picker.addEventListener('pointercancel', ev => {
   const p = picks.get(ev.pointerId); if (!p) return;
-  picks.delete(ev.pointerId); p.c.classList.remove('pressed');
+  picks.delete(ev.pointerId); if (p.c) p.c.classList.remove('pressed');
 });
 
 /* ==========================================================================
@@ -583,6 +738,15 @@ function holdable(el, fn) {
 }
 holdable(bin, clearCanvas);
 holdable(gear, openSettings);
+
+// Top-right clear button: one tap sweeps the canvas.
+const clearBtn = $('clear');
+clearBtn.addEventListener('pointerdown', ev => {
+  ev.stopPropagation(); ev.preventDefault();
+  clearBtn.classList.add('pressed');
+  setTimeout(() => clearBtn.classList.remove('pressed'), 200);
+  if (state.emojis.length) clearCanvas(); else SFX.tick();
+});
 holdable(resetBtn, resetEverything);
 
 /* ==========================================================================
