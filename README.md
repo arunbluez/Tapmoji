@@ -13,6 +13,8 @@ Files: `index.html` (all the code), `sw.js` (offline cache), `manifest.json`, `i
 
 All paths in `manifest.json` and `sw.js` are relative (`./`) because the app is served from a subpath.
 
+Note: GitHub only starts a Pages build for pushes made from a GitHub account (the website editor, the GitHub app, or a local machine). Pushes made through a Claude Code session land on `main` but do not start a build, so after such an update make any small commit yourself, or re-save the Pages source in Settings, and check the "pages build and deployment" run under Actions.
+
 ## Install on the iPad (at home, on Wi-Fi)
 
 1. Open the URL in Safari.
